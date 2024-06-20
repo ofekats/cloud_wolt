@@ -14,12 +14,12 @@ export class RestaurantsCdkStack extends cdk.Stack {
     super(scope, id, props);
     const useCacheFlag = true;
 
-    // Students TODO Account Details: Change to your account id
-    const labRole = iam.Role.fromRoleArn(this, 'Role', "arn:aws:iam::079553702230:role/LabRole", { mutable: false });
+    // Students TODO Account Details: Change to your account id - I did
+    const labRole = iam.Role.fromRoleArn(this, 'Role', "arn:aws:iam::770130757092:role/LabRole", { mutable: false });
 
-    // Students TODO Account Details: Change the vpcId to the VPC ID of your existing VPC
+    // Students TODO Account Details: Change the vpcId to the VPC ID of your existing VPC - I did
     const vpc = ec2.Vpc.fromLookup(this, 'VPC', {
-      vpcId: 'vpc-052733467352389cf',
+      vpcId: 'vpc-02749fbf602ff5d63',
     });
 
     this.createNatGatewayForPrivateSubnet(vpc);
@@ -107,7 +107,7 @@ export class RestaurantsCdkStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       role: labRole,
       minCapacity: 1, // Note for students: you may need to change this min capacity for scaling testing if you belive that is right
-      maxCapacity: 1, // Note for students: you may need to change this max capacity for scaling testing if you belive that is right
+      maxCapacity: 3, //was 1 Note for students: you may need to change this max capacity for scaling testing if you belive that is right
       desiredCapacity: 1, // Note for students: you may need to change this desired capacity for scaling testing if you belive that is right
     });
 
@@ -164,7 +164,8 @@ export class RestaurantsCdkStack extends cdk.Stack {
     // Students TODO: Change the table schema as needed
 
     const table = new dynamodb.Table(this, 'Restaurants', {
-      partitionKey: { name: 'SimpleKey', type: dynamodb.AttributeType.STRING },
+      partitionKey: { name: 'RestaurantName', type: dynamodb.AttributeType.STRING },
+      // sortKey: { name: 'GeoRegional', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       billingMode: dynamodb.BillingMode.PROVISIONED,
       readCapacity: 1, // Note for students: you may need to change this num read capacity for scaling testing if you belive that is right
