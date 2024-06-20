@@ -178,31 +178,39 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     const cuisine = req.params.cuisine;
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(limit, 100); // Ensure the limit does not exceed 100
-    
+    //for 10 point bonus
+    const minRating = parseFloat(req.query.minRating) || 0; // Get the minimum rating from query params, default to 0 if not provided
+    console.log("minRating: ", minRating);
     // Students TODO: Implement the logic to get top rated restaurants by cuisine
     // res.status(404).send("need to implement");
     const params = {
         TableName: TABLE_NAME,
-        FilterExpression: 'Cuisine = :cuisine',
+        FilterExpression: 'Cuisine = :cuisine', // Filter by cuisine only
         ExpressionAttributeValues: {
-            ':cuisine': cuisine
+            ':cuisine': cuisine,
         }
     };
-
+    // console.log("params: ", params);
     try {
         // Scan the table and filter by cuisine
         const data = await documentClient.scan(params).promise();
-
+        console.log("data: ", data);
         if (!data.Items || data.Items.length === 0) {
             return res.status(404).json({ message: 'No restaurants found for the given cuisine' });
         }
 
-        // Sort the results by rating in descending order
-        const sortedRestaurants = data.Items.sort((a, b) => (b.Rating || 0) - (a.Rating || 0));
-
+        // Filter and sort the results by rating in descending order
+        const filteredRestaurants = data.Items.filter(item => (item.Rating || 0) >= minRating);
+        const sortedRestaurants = filteredRestaurants.sort((a, b) => (b.Rating || 0) - (a.Rating || 0));
+        // console.log("filteredRestaurants: ", filteredRestaurants);
+        // console.log("sortedRestaurants: ", sortedRestaurants);
         // Limit the results
         const topRestaurants = sortedRestaurants.slice(0, limit);
-
+        console.log("topRestaurants: ", topRestaurants);
+        // Check if topRestaurants is empty
+        if (topRestaurants.length === 0) {
+            return res.status(404).json({ message: 'No restaurants found for the given cuisine and rating criteria' });
+        }
         // Respond with the top restaurants
         res.status(200).json(topRestaurants.map(restaurant => ({
             name: restaurant.RestaurantName,

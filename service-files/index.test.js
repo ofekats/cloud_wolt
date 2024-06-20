@@ -112,6 +112,28 @@ describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
   });
 });
 
+
+//my new tests
+//for the 10 bonus points
+describe('GET /restaurants/cuisine/:cuisine with minRating', () => {
+  it('should get top restaurants by cuisine with rating greater than minRating', async () => {
+    const cuisine = 'Italian';
+    const minRating = 4;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?minRating=${minRating}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
+  });
+
+  it('should return no restaurants if no matches the minRating', async () => {
+    const cuisine = 'Italian';
+    const minRating = 5;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?minRating=${minRating}`);
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe('No restaurants found for the given cuisine and rating criteria');
+  });
+});
+
+
 describe('DELETE /restaurants/:restaurantName', () => {
   it('should delete a restaurant by name', async () => {
     const restaurantName = RestaurantAName;
@@ -126,3 +148,6 @@ describe('DELETE /restaurants/:restaurantName', () => {
     expect(response.status).toBe(404);
   });
 });
+
+
+
