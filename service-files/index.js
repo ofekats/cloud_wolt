@@ -12,6 +12,7 @@ const USE_CACHE = process.env.USE_CACHE === 'true';
 
 const memcachedActions = new RestaurantsMemcachedActions(MEMCACHED_CONFIGURATION_ENDPOINT);
 
+//Returns the current configuration settings of the API
 app.get('/', (req, res) => {
     const response = {
         MEMCACHED_CONFIGURATION_ENDPOINT: MEMCACHED_CONFIGURATION_ENDPOINT,
@@ -22,21 +23,28 @@ app.get('/', (req, res) => {
     res.send(response);
 });
 
+// Adds a new restaurant to the database. Returns a success message or error if the restaurant already exists.
 app.post('/restaurants', async (req, res) => {
     const restaurant = req.body;
 
-    // Students TODO: Implement the logic to add a restaurant
-    // res.status(404).send("need to implement");
     const checkParams = {
         TableName: TABLE_NAME,
         Key: {
             RestaurantName: restaurant.name // Unique name
-            // GeoRegional: restaurant.region // Sort key
         }
     };
     console.log("checkParams", checkParams);
     try {
-        // Check if the restaurant already exists
+        //cache
+        if(USE_CACHE){
+            // Check if the restaurant already exists in cache
+            if(await memcachedActions.getRestaurants(restaurant.name) != false){
+                // Restaurant already exists, respond with 409 Conflict
+                console.log("restaurant in cache!");
+                return res.status(409).json({ success: false, message: 'Restaurant already exists' });
+            }
+        }
+        // Check if the restaurant already exists in db
         const data = await documentClient.get(checkParams).promise();
         if (data.Item) {
             // Restaurant already exists, respond with 409 Conflict
@@ -48,11 +56,18 @@ app.post('/restaurants', async (req, res) => {
             TableName: TABLE_NAME,
             Item: {
                 RestaurantName: restaurant.name, // Unique name
-                GeoRegional: restaurant.region, // Regional Geo Location
-                Rating: restaurant.Rating, // Rating between 1 to 5
-                Cuisine: restaurant.cuisine // Cuisine type
+                GeoRegional: restaurant.region || '', // Regional Geo Location
+                Rating: restaurant.Rating || 0, // Rating between 1 to 5
+                Cuisine: restaurant.cuisine || '' // Cuisine type
             }
         };
+        //cache
+        if(USE_CACHE){
+            // add resturant to cache
+            const res = await memcachedActions.addRestaurants(restaurant.name, addParams);
+            console.log("res cache: ", res);
+            console.log("resturant added to cache!")
+        }
         console.log("addParams", addParams);
         await documentClient.put(addParams).promise();
         // Respond with 200 OK and success message
@@ -65,19 +80,36 @@ app.post('/restaurants', async (req, res) => {
     }
 });
 
+// Retrieves details of a restaurant by its name. Returns 404 if not found.
 app.get('/restaurants/:restaurantName', async (req, res) => {
     const restaurantName = req.params.restaurantName;
 
-    // Students TODO: Implement the logic to get a restaurant by name
-    // res.status(404).send("need to implement");
     const params = {
-        TableName: TABLE_NAME, // Replace with your DynamoDB table name
+        TableName: TABLE_NAME, 
         Key: {
             RestaurantName: restaurantName
         }
     };
 
     try {
+        //cache
+        if(USE_CACHE){
+            // Check if the restaurant exists in cache
+            const cacheData = await memcachedActions.getRestaurants(restaurantName);
+            console.log("cache data: ", cacheData);
+            if (cacheData) {
+                const restaurant = cacheData.Item;
+                return res.status(200).json({
+                    name: restaurant.RestaurantName,
+                    cuisine: restaurant.Cuisine || '',
+                    rating: restaurant.Rating || 0, 
+                    region: restaurant.GeoRegional || ''
+                });
+            }
+        }
+        // restaurant not exists in cache
+        console.log("cache data not found");
+
         const data = await documentClient.get(params).promise();
 
         if (!data.Item) {
@@ -89,9 +121,9 @@ app.get('/restaurants/:restaurantName', async (req, res) => {
         const restaurant = data.Item;
         res.status(200).json({
             name: restaurant.RestaurantName,
-            cuisine: restaurant.Cuisine,
-            rating: restaurant.Rating || 0, // Assuming Rating is an optional attribute with default 0
-            region: restaurant.GeoRegional || '' // Assuming GeoRegional is an optional attribute
+            cuisine: restaurant.Cuisine || '',
+            rating: restaurant.Rating || 0, 
+            region: restaurant.GeoRegional || ''
         });
     } catch (error) {
         console.error('Error retrieving restaurant:', error);
@@ -99,11 +131,10 @@ app.get('/restaurants/:restaurantName', async (req, res) => {
     }
 });
 
+// Deletes a restaurant by its name. Returns a success message.
 app.delete('/restaurants/:restaurantName', async (req, res) => {
     const restaurantName = req.params.restaurantName;
     
-    // Students TODO: Implement the logic to delete a restaurant by name
-    // res.status(404).send("need to implement");
     const params = {
         TableName: TABLE_NAME, 
         Key: {
@@ -112,6 +143,18 @@ app.delete('/restaurants/:restaurantName', async (req, res) => {
     };
 
     try {
+        //cache
+        if(USE_CACHE){
+            // Check if the restaurant exists in cache
+            if (await memcachedActions.getRestaurants(restaurantName) != false) {
+                //delete restaurant from cache
+                const res = await memcachedActions.deleteRestaurants(restaurantName);
+                console.log("res cache for delete: ", res);
+            }else{
+                console.log("restaurant not exists in cache");
+            }
+        }
+
         // Attempt to delete the item from the table
         await documentClient.delete(params).promise();
 
@@ -123,12 +166,11 @@ app.delete('/restaurants/:restaurantName', async (req, res) => {
     }
 });
 
+// Adds a rating to a restaurant and calculates the average rating. Returns a success message.
 app.post('/restaurants/rating', async (req, res) => {
     const restaurantName = req.body.name;
     const rating = req.body.rating;
     
-    // Students TODO: Implement the logic to add a rating to a restaurant
-    // res.status(404).send("need to implement");
     const getParams = {
         TableName: TABLE_NAME,
         Key: {
@@ -137,15 +179,32 @@ app.post('/restaurants/rating', async (req, res) => {
     };
 
     try {
-        // Get the current restaurant details
-        const data = await documentClient.get(getParams).promise();
-
-        if (!data.Item) {
-            return res.status(404).json({ message: 'Restaurant not found' });
+        let restaurant;
+        let foundInCache = false;
+        //cache
+        if(USE_CACHE){
+            // Check if the restaurant exists in cache
+            const cacheData = await memcachedActions.getRestaurants(restaurantName);
+            console.log("cache data: ", cacheData);
+            if (cacheData) {
+                restaurant = cacheData.Item;
+                foundInCache = true;
+            }
         }
+        console.log("foundInCache: ", foundInCache);
+        //didnt found in cache or dosent use cache
+        if(!foundInCache){
+            // Get the current restaurant details from DB
+            const data = await documentClient.get(getParams).promise();
 
-        const restaurant = data.Item;
+            if (!data.Item) {
+                return res.status(404).json({ message: 'Restaurant not found' });
+            }
+
+            restaurant = data.Item;
+        }
         
+        console.log("restaurant details: ", restaurant);
         // Calculate the new average rating
         const currentRating = restaurant.Rating || 0;
         const ratingCount = restaurant.RatingCount || 0;
@@ -163,7 +222,11 @@ app.post('/restaurants/rating', async (req, res) => {
             },
             ReturnValues: 'UPDATED_NEW'
         };
-
+        //delete from cache if it there
+        if(foundInCache){
+            const res = await memcachedActions.deleteRestaurants(restaurantName);
+            console.log("cache res for delete: ", res);
+        }
         // Update the restaurant's rating
         await documentClient.update(updateParams).promise();
 
@@ -174,6 +237,8 @@ app.post('/restaurants/rating', async (req, res) => {
     }
 });
 
+//need cache??
+//Retrieves top-rated restaurants by cuisine. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     const cuisine = req.params.cuisine;
     let limit = parseInt(req.query.limit) || 10;
@@ -181,8 +246,7 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     //for 10 point bonus
     const minRating = parseFloat(req.query.minRating) || 0; // Get the minimum rating from query params, default to 0 if not provided
     console.log("minRating: ", minRating);
-    // Students TODO: Implement the logic to get top rated restaurants by cuisine
-    // res.status(404).send("need to implement");
+    //Only items where the Cuisine attribute matches the provided cuisine value will be included in the results
     const params = {
         TableName: TABLE_NAME,
         FilterExpression: 'Cuisine = :cuisine', // Filter by cuisine only
@@ -225,13 +289,13 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
 
 });
 
+//need cache??
+// Retrieves top-rated restaurants by region. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/region/:region', async (req, res) => {
     const region = req.params.region;
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(limit, 100); // Ensure the limit does not exceed 100
-    
-    // Students TODO: Implement the logic to get top rated restaurants by region
-    // res.status(404).send("need to implement");
+    //Only items where the region attribute matches the provided region value will be included in the results
     const params = {
         TableName: TABLE_NAME,
         FilterExpression: 'GeoRegional = :region',
@@ -267,15 +331,15 @@ app.get('/restaurants/region/:region', async (req, res) => {
     }
 });
 
+//need cache??
+//Retrieves top-rated restaurants by region and cuisine. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
     const region = req.params.region;
     const cuisine = req.params.cuisine;
 
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(limit, 100); // Ensure the limit does not exceed 100
-
-    // Students TODO: Implement the logic to get top rated restaurants by region and cuisine
-    // res.status(404).send("need to implement");
+    //filter by region and cuisine
     const params = {
         TableName: TABLE_NAME,
         FilterExpression: 'GeoRegional = :region and Cuisine = :cuisine',
