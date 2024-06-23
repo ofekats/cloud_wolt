@@ -165,11 +165,30 @@ export class RestaurantsCdkStack extends cdk.Stack {
 
     const table = new dynamodb.Table(this, 'Restaurants', {
       partitionKey: { name: 'RestaurantName', type: dynamodb.AttributeType.STRING },
-      // sortKey: { name: 'GeoRegional', type: dynamodb.AttributeType.STRING },
       removalPolicy: cdk.RemovalPolicy.DESTROY,
       billingMode: dynamodb.BillingMode.PROVISIONED,
       readCapacity: 1, // Note for students: you may need to change this num read capacity for scaling testing if you belive that is right
       writeCapacity: 1, // Note for students: you may need to change this num write capacity for scaling testing if you belive that is right
+    });
+
+    // Adding additional attributes - to use query instead of scan
+    table.addGlobalSecondaryIndex({
+      indexName: 'GeoRegional-index',
+      partitionKey: { name: 'GeoRegional', type: dynamodb.AttributeType.STRING },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    table.addGlobalSecondaryIndex({
+        indexName: 'Cuisine-index',
+        partitionKey: { name: 'Cuisine', type: dynamodb.AttributeType.STRING },
+        projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    table.addGlobalSecondaryIndex({
+        indexName: 'GeoRegionalCuisine-index',
+        partitionKey: { name: 'GeoRegional', type: dynamodb.AttributeType.STRING },
+        sortKey: { name: 'Cuisine', type: dynamodb.AttributeType.STRING },
+        projectionType: dynamodb.ProjectionType.ALL,
     });
 
     // Output the table name

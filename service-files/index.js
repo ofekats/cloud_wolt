@@ -237,7 +237,6 @@ app.post('/restaurants/rating', async (req, res) => {
     }
 });
 
-//need cache??
 //Retrieves top-rated restaurants by cuisine. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     const cuisine = req.params.cuisine;
@@ -246,18 +245,29 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
     //for 10 point bonus
     const minRating = parseFloat(req.query.minRating) || 0; // Get the minimum rating from query params, default to 0 if not provided
     console.log("minRating: ", minRating);
-    //Only items where the Cuisine attribute matches the provided cuisine value will be included in the results
     const params = {
         TableName: TABLE_NAME,
-        FilterExpression: 'Cuisine = :cuisine', // Filter by cuisine only
+        IndexName: 'Cuisine-index',
+        KeyConditionExpression: 'Cuisine = :cuisine', // Query by cuisine
         ExpressionAttributeValues: {
             ':cuisine': cuisine,
-        }
+        },
+        Limit: limit 
     };
-    // console.log("params: ", params);
+    const cacheKey = "cuisine:"+ cuisine+ "-minRating:"+minRating+"-limit:"+limit;
+    console.log("cacheKey: ", cacheKey);
     try {
-        // Scan the table and filter by cuisine
-        const data = await documentClient.scan(params).promise();
+        //cache
+        if(USE_CACHE){
+            // Check if the key exists in cache
+            const cacheData = await memcachedActions.getRestaurants(cacheKey);
+            console.log("cache data top cuisine: ", cacheData);
+            if (cacheData) {
+                return res.status(200).json(cacheData);
+            }
+        }
+        // Query the table by cuisine
+        const data = await documentClient.query(params).promise();
         console.log("data: ", data);
         if (!data.Items || data.Items.length === 0) {
             return res.status(404).json({ message: 'No restaurants found for the given cuisine' });
@@ -275,6 +285,17 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
         if (topRestaurants.length === 0) {
             return res.status(404).json({ message: 'No restaurants found for the given cuisine and rating criteria' });
         }
+        //cache
+        if(USE_CACHE){
+            // add to cache
+            const res = memcachedActions.addRestaurants(cacheKey,topRestaurants.map(restaurant => ({
+                name: restaurant.RestaurantName,
+                cuisine: restaurant.Cuisine,
+                rating: restaurant.Rating || 0,
+                region: restaurant.GeoRegional || ''
+            })));
+            console.log("res: ", res);
+        }
         // Respond with the top restaurants
         res.status(200).json(topRestaurants.map(restaurant => ({
             name: restaurant.RestaurantName,
@@ -289,24 +310,34 @@ app.get('/restaurants/cuisine/:cuisine', async (req, res) => {
 
 });
 
-//need cache??
 // Retrieves top-rated restaurants by region. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/region/:region', async (req, res) => {
     const region = req.params.region;
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(limit, 100); // Ensure the limit does not exceed 100
-    //Only items where the region attribute matches the provided region value will be included in the results
     const params = {
         TableName: TABLE_NAME,
-        FilterExpression: 'GeoRegional = :region',
+        IndexName: 'GeoRegional-index',
+        KeyConditionExpression: 'GeoRegional = :region', // Query by region
         ExpressionAttributeValues: {
-            ':region': region
-        }
+            ':region': region,
+        },
+        Limit: limit 
     };
-
+    const cacheKey = "region:"+ region+"-limit:"+limit;
+    console.log("cacheKey: ", cacheKey);
     try {
-        // Scan the table and filter by region
-        const data = await documentClient.scan(params).promise();
+        //cache
+        if(USE_CACHE){
+            // Check if the key exists in cache
+            const cacheData = await memcachedActions.getRestaurants(cacheKey);
+            console.log("cache data top region: ", cacheData);
+            if (cacheData) {
+                return res.status(200).json(cacheData);
+            }
+        }
+        // Query the table by region
+        const data = await documentClient.query(params).promise();
 
         if (!data.Items || data.Items.length === 0) {
             return res.status(404).json({ message: 'No restaurants found for the given region' });
@@ -317,6 +348,18 @@ app.get('/restaurants/region/:region', async (req, res) => {
 
         // Limit the results
         const topRestaurants = sortedRestaurants.slice(0, limit);
+
+        //cache
+        if(USE_CACHE){
+            // add to cache
+            const res = memcachedActions.addRestaurants(cacheKey,topRestaurants.map(restaurant => ({
+                name: restaurant.RestaurantName,
+                cuisine: restaurant.Cuisine,
+                rating: restaurant.Rating || 0,
+                region: restaurant.GeoRegional || ''
+            })));
+            console.log("res: ", res);
+        }
 
         // Respond with the top restaurants
         res.status(200).json(topRestaurants.map(restaurant => ({
@@ -331,7 +374,6 @@ app.get('/restaurants/region/:region', async (req, res) => {
     }
 });
 
-//need cache??
 //Retrieves top-rated restaurants by region and cuisine. Supports an optional limit query parameter (default 10, max 100).
 app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
     const region = req.params.region;
@@ -339,19 +381,32 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
 
     let limit = parseInt(req.query.limit) || 10;
     limit = Math.min(limit, 100); // Ensure the limit does not exceed 100
-    //filter by region and cuisine
+    
     const params = {
         TableName: TABLE_NAME,
-        FilterExpression: 'GeoRegional = :region and Cuisine = :cuisine',
+        IndexName: 'GeoRegionalCuisine-index',
+        KeyConditionExpression: 'GeoRegional = :region and Cuisine = :cuisine', // Query by region and cuisine
         ExpressionAttributeValues: {
             ':region': region,
-            ':cuisine': cuisine
-        }
+            ':cuisine': cuisine,
+        },
+        Limit: limit
     };
 
+    const cacheKey = "region:"+ region+"-cuisine:"+cuisine+"-limit:"+limit;
+    console.log("cacheKey: ", cacheKey);
     try {
-        // Scan the table and filter by region and cuisine
-        const data = await documentClient.scan(params).promise();
+        //cache
+        if(USE_CACHE){
+            // Check if the key exists in cache
+            const cacheData = await memcachedActions.getRestaurants(cacheKey);
+            console.log("cache data top region and cuisine: ", cacheData);
+            if (cacheData) {
+                return res.status(200).json(cacheData);
+            }
+        }
+        // Query the table by region and cuisine
+        const data = await documentClient.query(params).promise();
 
         if (!data.Items || data.Items.length === 0) {
             return res.status(404).json({ message: 'No restaurants found for the given region and cuisine' });
@@ -362,6 +417,18 @@ app.get('/restaurants/region/:region/cuisine/:cuisine', async (req, res) => {
 
         // Limit the results
         const topRestaurants = sortedRestaurants.slice(0, limit);
+
+        //cache
+        if(USE_CACHE){
+            // add to cache
+            const res = memcachedActions.addRestaurants(cacheKey,topRestaurants.map(restaurant => ({
+                name: restaurant.RestaurantName,
+                cuisine: restaurant.Cuisine,
+                rating: restaurant.Rating || 0,
+                region: restaurant.GeoRegional || ''
+            })));
+            console.log("res: ", res);
+        }
 
         // Respond with the top restaurants
         res.status(200).json(topRestaurants.map(restaurant => ({
