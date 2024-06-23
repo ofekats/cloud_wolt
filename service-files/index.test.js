@@ -91,10 +91,26 @@ describe('GET /restaurants/cuisine/:cuisine', () => {
     expect(response.status).toBe(200);
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });
+
+  //again for cache
+  it('should get top restaurants by cuisine from cache!', async () => {
+    const cuisine = 'Italian';
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
+  });
 });
 
 describe('GET /restaurants/region/:region', () => {
   it('should get top restaurants by region', async () => {
+    const region = 'North';
+    const response = await request(server).get(`/restaurants/region/${region}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
+  });
+
+  //again for cache
+  it('should get top restaurants by region from cache!', async () => {
     const region = 'North';
     const response = await request(server).get(`/restaurants/region/${region}`);
     expect(response.status).toBe(200);
@@ -110,6 +126,15 @@ describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
     expect(response.status).toBe(200);
     expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
   });
+
+  //again for cache
+  it('should get top restaurants by region and cuisine from cache!', async () => {
+    const region = 'North';
+    const cuisine = 'Italian';
+    const response = await request(server).get(`/restaurants/region/${region}/cuisine/${cuisine}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
+  });
 });
 
 
@@ -117,6 +142,15 @@ describe('GET /restaurants/region/:region/cuisine/:cuisine', () => {
 //for the 10 bonus points
 describe('GET /restaurants/cuisine/:cuisine with minRating', () => {
   it('should get top restaurants by cuisine with rating greater than minRating', async () => {
+    const cuisine = 'Italian';
+    const minRating = 4;
+    const response = await request(server).get(`/restaurants/cuisine/${cuisine}?minRating=${minRating}`);
+    expect(response.status).toBe(200);
+    expect(response.body).toContainEqual({ name: RestaurantAName, cuisine: 'Italian', rating: 4.5, region: 'North' });
+  });
+
+  //again for cache
+  it('should get top restaurants by cuisine with rating greater than minRating from cache!', async () => {
     const cuisine = 'Italian';
     const minRating = 4;
     const response = await request(server).get(`/restaurants/cuisine/${cuisine}?minRating=${minRating}`);
