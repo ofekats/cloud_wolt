@@ -179,30 +179,14 @@ app.post('/restaurants/rating', async (req, res) => {
     };
 
     try {
-        let restaurant;
-        let foundInCache = false;
-        //cache
-        if(USE_CACHE){
-            // Check if the restaurant exists in cache
-            const cacheData = await memcachedActions.getRestaurants(restaurantName);
-            console.log("cache data: ", cacheData);
-            if (cacheData) {
-                restaurant = cacheData.Item;
-                foundInCache = true;
-            }
-        }
-        console.log("foundInCache: ", foundInCache);
-        //didnt found in cache or dosent use cache
-        if(!foundInCache){
-            // Get the current restaurant details from DB
-            const data = await documentClient.get(getParams).promise();
+        // Get the current restaurant details from DB
+        const data = await documentClient.get(getParams).promise();
 
-            if (!data.Item) {
-                return res.status(404).json({ message: 'Restaurant not found' });
-            }
-
-            restaurant = data.Item;
+        if (!data.Item) {
+            return res.status(404).json({ message: 'Restaurant not found' });
         }
+
+        const restaurant = data.Item;
         
         console.log("restaurant details: ", restaurant);
         // Calculate the new average rating
@@ -223,9 +207,13 @@ app.post('/restaurants/rating', async (req, res) => {
             ReturnValues: 'UPDATED_NEW'
         };
         //delete from cache if it there
-        if(foundInCache){
-            const res = await memcachedActions.deleteRestaurants(restaurantName);
-            console.log("cache res for delete: ", res);
+        if(USE_CACHE){
+            const cacheData = await memcachedActions.getRestaurants(restaurantName);
+            console.log("cache data: ", cacheData);
+            if (cacheData) {
+                const res = await memcachedActions.deleteRestaurants(restaurantName);
+                console.log("cache res for delete: ", res);
+            }
         }
         // Update the restaurant's rating
         await documentClient.update(updateParams).promise();
