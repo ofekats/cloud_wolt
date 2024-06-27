@@ -57,7 +57,7 @@ app.post('/restaurants', async (req, res) => {
             Item: {
                 RestaurantName: restaurant.name, // Unique name
                 GeoRegional: restaurant.region || '', // Regional Geo Location
-                Rating: restaurant.Rating || 0, // Rating between 1 to 5
+                Rating: restaurant.rating || 0, // Rating between 1 to 5
                 Cuisine: restaurant.cuisine || '' // Cuisine type
             }
         };
@@ -66,7 +66,7 @@ app.post('/restaurants', async (req, res) => {
             // add resturant to cache
             const res = await memcachedActions.addRestaurants(restaurant.name, addParams);
             console.log("res cache: ", res);
-            console.log("resturant added to cache!")
+            console.log("resturant added to cache!");
         }
         console.log("addParams", addParams);
         await documentClient.put(addParams).promise();
