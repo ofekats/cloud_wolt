@@ -1,7 +1,7 @@
 const axios = require('axios');
 const assert = require('assert');
 
-const endPoint = 'http://Restau-LB8A1-VvD2Oxnsbqxv-1341499121.us-east-1.elb.amazonaws.com'; // Update with your endpoint
+const endPoint = 'http://Restau-LB8A1-7O8BHGkN0PqW-1084058184.us-east-1.elb.amazonaws.com'; // Update with your endpoint
 const restaurants = [
     { name: 'Restaurant 1', region: 'Region1', cuisine: 'Cuisine1', rating: 4},
     { name: 'Restaurant 2', region: 'Region2', cuisine: 'Cuisine2', rating: 3},
@@ -186,16 +186,20 @@ async function runTests() {
 
         await sleep(100);
 
-        // // Example tests for GET by cuisine, region, and region/cuisine
-        // await testGetRestaurantsByCuisine('Cuisine1');
-        // await testGetRestaurantsByRegion('Region1');
-        // await testGetRestaurantsByRegionAndCuisine('Region1', 'Cuisine1');
+        // Example tests for GET by cuisine, region, and region/cuisine
+        await testGetRestaurantsByCuisine('Cuisine1');
+        await sleep(100);
+        await testGetRestaurantsByRegion('Region1');
+        await sleep(100);
+        await testGetRestaurantsByRegionAndCuisine('Region1', 'Cuisine1');
+        await sleep(100);
 
-        // // // Test individual restaurants (DELETE)
-        // // for (let i = 0; i < restaurants.length; i++) {
-        // //     const restaurant = restaurants[i];
-        // //     timeMeasurements.push(await testDeleteRestaurant(restaurant));
-        // // }
+        // Test individual restaurants (DELETE)
+        for (let i = 0; i < restaurants.length; i++) {
+            const restaurant = restaurants[i];
+            await testDeleteRestaurant(restaurant);
+            await sleep(100);
+        }
 
         const endTime = Date.now();
         const totalTime = endTime - startTime;
