@@ -1,9 +1,9 @@
 const axios = require('axios');
 const assert = require('assert');
 
-const endPoint = 'http://Restau-LB8A1-TZPDi26QR2Bn-157677375.us-east-1.elb.amazonaws.com'; // Update with your endpoint
+const endPoint = 'http://Restau-LB8A1-yky1dqAwRMFC-127528954.us-east-1.elb.amazonaws.com'; // Update with your endpoint
 const createdRestaurants = []; // Array to store generated restaurant data
-const number_of_rest = 1; // number of resturant for testing
+const number_of_rest = 10; // number of resturant for testing
 // Example cuisines and regions
 const cuisines = ['Italian', 'Chinese', 'Indian', 'Mexican', 'American', 'Japanese', 'French', 'Thai', 'Greek', 'Mediterranean'];
 const regions = ['North', 'South', 'East', 'West', 'Central'];
@@ -40,6 +40,7 @@ async function insertRestaurants(numberOfRestaurants) {
                 console.log(`Restaurant ${restaurant.name} inserted successfully. Status: ${res.status}, Time taken: ${timeTaken}ms`);
                 await sleep(100);
             } catch (error) {
+                console.log("error", error);
                 if (error.response) {
                     console.error(`Error inserting restaurant ${restaurant.name}: ${error.response.status} - ${error.response.data}`);
                 } else {
