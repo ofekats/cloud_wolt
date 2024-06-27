@@ -52,13 +52,17 @@ app.post('/restaurants', async (req, res) => {
         }
 
         // If restaurant does not exist, add it to the table
+        let count_rating = (restaurant.rating === 0 || restaurant.rating === undefined) ? 0 : 1;
+        console.log("restaurant.rating: ",restaurant.rating );
+        console.log("count_rating: ",count_rating );
         const addParams = {
             TableName: TABLE_NAME,
             Item: {
                 RestaurantName: restaurant.name, // Unique name
                 GeoRegional: restaurant.region || '', // Regional Geo Location
                 Rating: restaurant.rating || 0, // Rating between 1 to 5
-                Cuisine: restaurant.cuisine || '' // Cuisine type
+                Cuisine: restaurant.cuisine || '', // Cuisine type
+                RatingCount: count_rating || 0
             }
         };
         //cache
@@ -181,6 +185,7 @@ app.post('/restaurants/rating', async (req, res) => {
     try {
         // Get the current restaurant details from DB
         const data = await documentClient.get(getParams).promise();
+        console.log("getParams:" , getParams);
 
         if (!data.Item) {
             return res.status(404).json({ message: 'Restaurant not found' });
