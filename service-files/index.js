@@ -20,6 +20,7 @@ app.get('/', (req, res) => {
         AWS_REGION: AWS_REGION,
         // USE_CACHE: USE_CACHE
     };
+    console.log("USE_CACHE: ", USE_CACHE);
     res.send(response);
 });
 
@@ -37,11 +38,18 @@ app.post('/restaurants', async (req, res) => {
     try {
         //cache
         if(USE_CACHE){
+            try{
             // Check if the restaurant already exists in cache
             if(await memcachedActions.getRestaurants(restaurant.name) != false){
                 // Restaurant already exists, respond with 409 Conflict
                 console.log("restaurant in cache!");
                 return res.status(409).json({ success: false, message: 'Restaurant already exists' });
+            }}
+            catch(error){
+                // Log the error for debugging purposes
+                console.error('Error checking cache:', error);
+                // Handle the error or re-throw it for further handling
+                return res.status(500).json({ success: false, message: 'Error checking cache' });
             }
         }
         // Check if the restaurant already exists in db
